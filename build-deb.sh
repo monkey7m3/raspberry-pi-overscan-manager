@@ -3,11 +3,11 @@ set -eu
 ARCH="${1:-arm64}"
 case "$ARCH" in arm64|armhf) ;; *) echo "Use arm64 or armhf" >&2; exit 2;; esac
 PKG="raspberry-pi-overscan-manager"
-VERSION="0.2.0"
+VERSION="0.3.0"
 ROOT="dist/${PKG}_${VERSION}_${ARCH}"
 rm -rf "$ROOT"
 mkdir -p "$ROOT/DEBIAN" "$ROOT/usr/lib/$PKG" "$ROOT/usr/bin" "$ROOT/usr/share/applications"
-cp backend.py app.py boot_helper.py diagnostics.py "$ROOT/usr/lib/$PKG/"
+cp backend.py app.py boot_helper.py diagnostics.py live_probe.py "$ROOT/usr/lib/$PKG/"
 cat > "$ROOT/DEBIAN/control" <<CONTROL
 Package: $PKG
 Version: $VERSION

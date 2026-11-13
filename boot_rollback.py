@@ -89,6 +89,31 @@ def recover(state=STATE, cmdline=CMDLINE):
     return "Original boot configuration restored; reboot again to activate"
 
 
+def expire(state=STATE, cmdline=CMDLINE):
+    """Restore unconfirmed test settings, then request a reboot.
+
+    This runs from an independent systemd timer. It must never reboot during
+    the staging boot or when no test transaction is pending.
+    """
+    data = load(state)
+    if data is None or current_boot_id() == data["created_boot_id"]:
+        return "No active test boot"
+    if cmdline.read_bytes() != bytes.fromhex(data["expected_hex"]):
+        raise RuntimeError("Boot configuration changed externally; refusing timed rollback")
+    if data["first_test_boot_id"] is None:
+        raise RuntimeError("Boot recovery service has not marked the test boot")
+    if current_boot_id() != data["first_test_boot_id"]:
+        return recover(state, cmdline)
+    original = bytes.fromhex(data["original_hex"])
+    original_mode = stat.S_IMODE(cmdline.stat().st_mode)
+    atomic_write(cmdline, original, mode=original_mode)
+    state.unlink()
+    # The service executes this only after the original cmdline is durable.
+    import subprocess
+    subprocess.run(["/usr/bin/systemctl", "--no-block", "reboot"], check=True)
+    return "Unconfirmed display test: original configuration restored; reboot requested"
+
+
 def confirm(state=STATE, cmdline=CMDLINE):
     data = load(state)
     if data is None:
@@ -104,7 +129,7 @@ def confirm(state=STATE, cmdline=CMDLINE):
 def main():
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument("action", choices=("recover", "confirm", "status"))
+    parser.add_argument("action", choices=("recover", "confirm", "expire", "status"))
     args = parser.parse_args()
     if os.geteuid() != 0:
         parser.error("root permission required")
@@ -112,6 +137,8 @@ def main():
         print(recover())
     elif args.action == "confirm":
         print(confirm())
+    elif args.action == "expire":
+        print(expire())
     else:
         data = load()
         print(json.dumps({

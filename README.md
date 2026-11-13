@@ -17,7 +17,7 @@ Early-development GTK3 interface for Raspberry Pi OS (initially tested against P
 Download a package from [Actions](../../actions) on the development branch. Unzip its uploaded artifact, then run:
 
 ```bash
-sudo apt install ./raspberry-pi-overscan-manager_0.2.0_arm64.deb
+sudo apt install ./raspberry-pi-overscan-manager_0.3.0_arm64.deb
 ```
 
 Use the ARMHF package on 32-bit Raspberry Pi OS. Launch from Preferences or run `raspberry-pi-overscan-manager`.
@@ -32,6 +32,14 @@ Open the application and click **Export diagnostics…**. Save the JSON report a
 
 The exported report helps identify the available compositor interfaces but cannot, by itself, prove that live margin writes are possible.
 
+## Live access investigation (v0.3.0)
+
+Click **Probe live access…** and save `overscan-live-probe.json`. This test opens DRM card devices as the current desktop user and makes only a read-only `DRM_IOCTL_GET_MAGIC` query. It does **not** acquire DRM master, change margins, restart labwc, or edit boot settings.
+
+Please upload the report to the project discussion. A successful open does **not** mean a separate process can change margins while the compositor is running; this probe is an initial permissions check, not a proof of live adjustment.
+
+**Do not run `modetest -w` or stop labwc as part of this test.** A truly safe live change-and-rollback experiment requires a compositor-coordinated mechanism or independently tested restoration.
+
 ## Not yet implemented
 
 - Live adjustment, countdown rollback, and verified persistent compensation under labwc
@@ -45,7 +53,7 @@ Wayland output scaling is not equivalent to KMS overscan correction. The planned
 
 ```bash
 python3 -m unittest discover -s tests -v
-python3 -m compileall -q backend.py app.py boot_helper.py diagnostics.py
+python3 -m compileall -q backend.py app.py boot_helper.py diagnostics.py live_probe.py
 sh ./build-deb.sh arm64
 ```
 

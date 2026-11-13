@@ -42,6 +42,8 @@ Please upload the report to the project discussion. A successful open does **not
 
 See [Live adjustment architecture](docs/live-adjustment-architecture.md) for the compositor feasibility findings, proposed backend design, and safety requirements.
 
+See also the [VC4 kernel and compositor source review](docs/vc4-source-review.md) for the evidence supporting atomic margin updates and the remaining integration risks.
+
 ## Not yet implemented
 
 - Live adjustment, countdown rollback, and verified persistent compensation under labwc

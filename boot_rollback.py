@@ -74,8 +74,14 @@ def recover(state=STATE, cmdline=CMDLINE):
     expected = bytes.fromhex(data["expected_hex"])
     actual = cmdline.read_bytes()
     if actual == original:
-        # The original may already have been restored before a failed reboot
-        # request. On a later boot it is safe to clear stale state.
+        # The original may already have been restored after a failed reboot
+        # request. If this boot is the first test boot, request a reboot to
+        # activate the original cmdline rather than leaving the bad display.
+        if data["first_test_boot_id"] == boot:
+            import subprocess
+            subprocess.run(["/usr/bin/systemctl", "--no-block", "reboot"], check=True)
+            state.unlink()
+            return "Original configuration present; reboot requested"
         state.unlink()
         return "Original configuration present; pending transaction cleared"
     if actual != expected:

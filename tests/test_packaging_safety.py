@@ -28,6 +28,13 @@ class PackagingSafetyTests(unittest.TestCase):
         self.assertIn("rollback.service", helper)
         self.assertIn("refusing boot change", helper)
 
+    def test_unattended_timeout_is_packaged_and_enabled(self):
+        self.assertIn("OnBootSec=3min", BUILD)
+        self.assertIn("WantedBy=timers.target", BUILD)
+        self.assertIn("systemctl enable raspberry-pi-overscan-timeout.timer", BUILD)
+        self.assertIn("systemctl start raspberry-pi-overscan-timeout.timer", BUILD)
+        self.assertIn("boot_rollback.py expire", BUILD)
+
     def test_service_unit_has_no_network_dependency(self):
         unit = BUILD.split("<<'UNIT'\n", 1)[1].split("\nUNIT", 1)[0]
         self.assertNotIn("network-online.target", unit)

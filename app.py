@@ -20,7 +20,7 @@ class Window(Gtk.Window):
         title = Gtk.Label(label="Display margin adjustment", xalign=0)
         title.get_style_context().add_class("title")
         box.pack_start(title, False, False, 0)
-        note = Gtk.Label(label="Reboot-based KMS changes only; experimental rollback requires extra reboots. Live preview is unavailable.", xalign=0)
+        note = Gtk.Label(label="Reboot-based KMS changes only; experimental rollback automatically reboots after 3 minutes without confirmation. Live preview is unavailable.", xalign=0)
         note.set_line_wrap(True)
         box.pack_start(note, False, False, 0)
         self.selector = Gtk.ComboBoxText()
@@ -120,7 +120,7 @@ class Window(Gtk.Window):
         response = self.message(
             f"Apply boot margins for {output['name']}?\n\n{detail}\n\n"
             "This modifies /boot/firmware/cmdline.txt with administrator authorization "
-            "and makes a backup. Reboot to test, then confirm the display works. If not confirmed, the original boot configuration is restored on the second reboot; a third reboot activates the restoration. Note: this is not a timed automatic reboot, "
+            "and makes a backup. Reboot to test, then confirm the display works. If not confirmed within about 3 minutes after boot, a systemd service restores the original boot configuration and reboots automatically. "
             "and a compositor may override the margins.",
             Gtk.MessageType.QUESTION, Gtk.ButtonsType.OK_CANCEL
         )
@@ -145,7 +145,7 @@ class Window(Gtk.Window):
             )
             return
         self.save_draft()
-        self.message("Boot configuration updated. Reboot to test, then click Confirm boot margins if the display works. If you cannot confirm, reboot twice more to restore the previous display settings.\n" + result.stdout)
+        self.message("Boot configuration updated. Reboot to test, then click Confirm boot margins if the display works. If you do not confirm within about 3 minutes after boot, the recovery service should restore the previous settings and reboot automatically.\n" + result.stdout)
 
     def export_diagnostics(self, *_):
         dialog = Gtk.FileChooserDialog(

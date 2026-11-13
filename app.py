@@ -205,8 +205,8 @@ class Window(Gtk.Window):
         dialog.destroy()
         if filename:
             try:
-                Path(filename).write_text(json.dumps(gather(), indent=2) + "\\n")
-                self.message("Read-only boot audit saved to:\\n" + filename)
+                Path(filename).write_text(json.dumps(gather(), indent=2) + "\n")
+                self.message("Read-only boot audit saved to:\n" + filename)
             except OSError as exc:
                 self.message(str(exc), Gtk.MessageType.ERROR)
 

@@ -54,12 +54,36 @@ ExecStart=/usr/bin/python3 /usr/lib/raspberry-pi-overscan-manager/boot_rollback.
 [Install]
 WantedBy=multi-user.target
 UNIT
+cat > "$ROOT/lib/systemd/system/raspberry-pi-overscan-timeout.service" <<'UNIT'
+[Unit]
+Description=Restore unconfirmed Raspberry Pi overscan settings
+After=raspberry-pi-overscan-rollback.service
+ConditionPathExists=/var/lib/raspberry-pi-overscan-manager/pending.json
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /usr/lib/raspberry-pi-overscan-manager/boot_rollback.py expire
+UNIT
+cat > "$ROOT/lib/systemd/system/raspberry-pi-overscan-timeout.timer" <<'UNIT'
+[Unit]
+Description=Overscan display confirmation timeout
+
+[Timer]
+OnBootSec=3min
+AccuracySec=1s
+Unit=raspberry-pi-overscan-timeout.service
+
+[Install]
+WantedBy=timers.target
+UNIT
 cat > "$ROOT/DEBIAN/postinst" <<'POST'
 #!/bin/sh
 set -e
 if [ "$1" = configure ] && command -v systemctl >/dev/null 2>&1; then
     systemctl daemon-reload || true
     systemctl enable raspberry-pi-overscan-rollback.service
+    systemctl enable raspberry-pi-overscan-timeout.timer
+    systemctl start raspberry-pi-overscan-timeout.timer
 fi
 POST
 chmod 755 "$ROOT/DEBIAN/postinst"

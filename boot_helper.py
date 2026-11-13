@@ -22,6 +22,8 @@ def apply(connector, margins, path=Path("/boot/firmware/cmdline.txt")):
         return "No changes required"
     if not Path('/etc/systemd/system/multi-user.target.wants/raspberry-pi-overscan-rollback.service').exists():
         raise RuntimeError('Rollback service is not enabled; refusing boot change')
+    if not Path('/etc/systemd/system/timers.target.wants/raspberry-pi-overscan-timeout.timer').exists():
+        raise RuntimeError('Rollback timeout timer is not enabled; refusing boot change')
     if STATE.exists():
         raise RuntimeError("A boot test is already pending; confirm or recover it first")
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")

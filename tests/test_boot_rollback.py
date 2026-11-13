@@ -1,5 +1,6 @@
 """Isolated tests: no root, no reboot, no real boot file writes."""
 import json
+import stat
 import tempfile
 import unittest
 from pathlib import Path
@@ -64,6 +65,20 @@ class RollbackTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             rollback.recover(self.state, self.cmdline)
         self.assertTrue(self.state.exists())
+
+    def test_state_file_is_private(self):
+        self.arm()
+        self.assertEqual(stat.S_IMODE(self.state.stat().st_mode), 0o600)
+
+    def test_restore_preserves_boot_file_permissions(self):
+        self.cmdline.chmod(0o640)
+        self.arm()
+        self.cmdline.write_bytes(self.new)
+        self.boot = "boot-1"
+        rollback.recover(self.state, self.cmdline)
+        self.boot = "boot-2"
+        rollback.recover(self.state, self.cmdline)
+        self.assertEqual(stat.S_IMODE(self.cmdline.stat().st_mode), 0o640)
 
     def test_second_transaction_rejected(self):
         self.arm()

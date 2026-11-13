@@ -127,6 +127,20 @@ class RollbackTests(unittest.TestCase):
         self.assertIn("Original configuration present", rollback.recover(self.state, self.cmdline))
         self.assertFalse(self.state.exists())
 
+    def test_recovery_retries_reboot_after_timeout_reboot_failure(self):
+        self.arm()
+        self.cmdline.write_bytes(self.new)
+        self.boot = "boot-1"
+        rollback.recover(self.state, self.cmdline)
+        import subprocess
+        with patch("subprocess.run", side_effect=subprocess.CalledProcessError(1, "systemctl")):
+            with self.assertRaises(subprocess.CalledProcessError):
+                rollback.expire(self.state, self.cmdline)
+        with patch("subprocess.run") as run:
+            self.assertIn("reboot requested", rollback.recover(self.state, self.cmdline))
+            run.assert_called_once()
+        self.assertFalse(self.state.exists())
+
     def test_timeout_does_not_reboot_staging_boot(self):
         self.arm()
         self.cmdline.write_bytes(self.new)

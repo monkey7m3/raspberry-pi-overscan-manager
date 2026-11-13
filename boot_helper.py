@@ -1,6 +1,7 @@
 """Privileged boot editor: only edits the kernel's video argument."""
 import argparse
 import fcntl
+import stat
 import os
 import shutil
 import sys
@@ -8,7 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from backend import CONNECTOR, EDGES, replace_video_argument, validate_margins
-from boot_rollback import arm, STATE
+from boot_rollback import arm, STATE, atomic_write
 
 
 def apply(connector, margins, path=Path("/boot/firmware/cmdline.txt")):
@@ -26,7 +27,8 @@ def _apply_locked(connector, margins, path):
     validate_margins(margins)
     if not path.is_file() or path.is_symlink():
         raise RuntimeError(f"Expected regular file: {path}")
-    old = path.read_text()
+    old_bytes = path.read_bytes()
+    old = old_bytes.decode("utf-8")
     new = replace_video_argument(old, connector, margins)
     if new == old:
         return "No changes required"
@@ -41,19 +43,14 @@ def _apply_locked(connector, margins, path):
         path.name + f".overscan-manager.{timestamp}.{os.getpid()}.bak"
     )
     shutil.copy2(path, backup)
-    temp = path.with_name(path.name + f".overscan-manager.{os.getpid()}.tmp")
     try:
-        arm(old.encode(), new.encode())
-        temp.write_text(new)
-        shutil.copymode(path, temp)
-        os.replace(temp, path)
+        arm(old_bytes, new.encode("utf-8"))
+        atomic_write(path, new.encode("utf-8"), mode=stat.S_IMODE(path.stat().st_mode))
     except Exception:
         # If the boot file has not changed, disarm the incomplete transaction.
-        if path.read_text() == old:
+        if path.read_bytes() == old_bytes:
             STATE.unlink(missing_ok=True)
         raise
-    finally:
-        temp.unlink(missing_ok=True)
     return f"Backup: {backup}"
 
 

@@ -108,10 +108,12 @@ def expire(state=STATE, cmdline=CMDLINE):
     original = bytes.fromhex(data["original_hex"])
     original_mode = stat.S_IMODE(cmdline.stat().st_mode)
     atomic_write(cmdline, original, mode=original_mode)
-    state.unlink()
-    # The service executes this only after the original cmdline is durable.
+    # Keep the transaction until the reboot request succeeds. If systemctl
+    # fails, the next recovery attempt sees the restored original bytes and
+    # clears stale state rather than mistaking this for a new test.
     import subprocess
     subprocess.run(["/usr/bin/systemctl", "--no-block", "reboot"], check=True)
+    state.unlink()
     return "Unconfirmed display test: original configuration restored; reboot requested"
 
 

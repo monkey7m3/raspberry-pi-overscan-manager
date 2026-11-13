@@ -1,5 +1,7 @@
 """Isolated tests: no root, no reboot, no real boot file writes."""
 import json
+import errno
+import os
 import stat
 import tempfile
 import unittest
@@ -84,6 +86,31 @@ class RollbackTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             rollback.recover(self.state, self.cmdline)
         self.assertTrue(self.state.exists())
+
+    def test_atomic_write_handles_unsupported_directory_fsync(self):
+        original_fsync = os.fsync
+        calls = []
+        def simulated_fsync(fd):
+            calls.append(fd)
+            if len(calls) == 2:
+                raise OSError(errno.EINVAL, "FAT directory fsync unsupported")
+            return original_fsync(fd)
+        with patch.object(rollback.os, "fsync", side_effect=simulated_fsync):
+            rollback.atomic_write(self.cmdline, b"updated\\n")
+        self.assertEqual(self.cmdline.read_bytes(), b"updated\\n")
+        self.assertEqual(len(calls), 2)
+
+    def test_atomic_write_propagates_unexpected_sync_failure(self):
+        original_fsync = os.fsync
+        calls = []
+        def simulated_fsync(fd):
+            calls.append(fd)
+            if len(calls) == 2:
+                raise OSError(errno.EIO, "I/O error")
+            return original_fsync(fd)
+        with patch.object(rollback.os, "fsync", side_effect=simulated_fsync):
+            with self.assertRaises(OSError):
+                rollback.atomic_write(self.cmdline, b"updated\\n")
 
     def test_state_file_is_private(self):
         self.arm()

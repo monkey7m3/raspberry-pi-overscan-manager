@@ -74,8 +74,10 @@ def recover(state=STATE, cmdline=CMDLINE):
     expected = bytes.fromhex(data["expected_hex"])
     actual = cmdline.read_bytes()
     if actual == original:
+        # The original may already have been restored before a failed reboot
+        # request. On a later boot it is safe to clear stale state.
         state.unlink()
-        return "Boot change never completed; pending transaction cleared"
+        return "Original configuration present; pending transaction cleared"
     if actual != expected:
         raise RuntimeError("Boot configuration changed externally; refusing to overwrite")
     if data["first_test_boot_id"] is None:
@@ -84,10 +86,18 @@ def recover(state=STATE, cmdline=CMDLINE):
         return "First test boot; awaiting confirmation"
     if boot == data["first_test_boot_id"]:
         return "Awaiting confirmation"
+    return restore_and_reboot(state, cmdline, original)
+
+
+def restore_and_reboot(state, cmdline, original):
+    """Restore exact boot bytes and request a reboot to activate them."""
+    import subprocess
     original_mode = stat.S_IMODE(cmdline.stat().st_mode)
     atomic_write(cmdline, original, mode=original_mode)
+    # Leave pending state intact if systemctl fails.
+    subprocess.run(["/usr/bin/systemctl", "--no-block", "reboot"], check=True)
     state.unlink()
-    return "Original boot configuration restored; reboot again to activate"
+    return "Original boot configuration restored; reboot requested"
 
 
 def expire(state=STATE, cmdline=CMDLINE):
@@ -105,16 +115,7 @@ def expire(state=STATE, cmdline=CMDLINE):
         raise RuntimeError("Boot recovery service has not marked the test boot")
     if current_boot_id() != data["first_test_boot_id"]:
         return recover(state, cmdline)
-    original = bytes.fromhex(data["original_hex"])
-    original_mode = stat.S_IMODE(cmdline.stat().st_mode)
-    atomic_write(cmdline, original, mode=original_mode)
-    # Keep the transaction until the reboot request succeeds. If systemctl
-    # fails, the next recovery attempt sees the restored original bytes and
-    # clears stale state rather than mistaking this for a new test.
-    import subprocess
-    subprocess.run(["/usr/bin/systemctl", "--no-block", "reboot"], check=True)
-    state.unlink()
-    return "Unconfirmed display test: original configuration restored; reboot requested"
+    return restore_and_reboot(state, cmdline, bytes.fromhex(data["original_hex"]))
 
 
 def confirm(state=STATE, cmdline=CMDLINE):

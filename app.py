@@ -20,7 +20,7 @@ class Window(Gtk.Window):
         title = Gtk.Label(label="Display margin adjustment", xalign=0)
         title.get_style_context().add_class("title")
         box.pack_start(title, False, False, 0)
-        note = Gtk.Label(label="Reboot-based KMS changes only; live preview and automatic rollback are not implemented.", xalign=0)
+        note = Gtk.Label(label="Reboot-based KMS changes only; experimental rollback requires extra reboots. Live preview is unavailable.", xalign=0)
         note.set_line_wrap(True)
         box.pack_start(note, False, False, 0)
         self.selector = Gtk.ComboBoxText()
@@ -36,29 +36,33 @@ class Window(Gtk.Window):
         self.status = Gtk.Label(xalign=0)
         self.status.set_line_wrap(True)
         box.pack_start(self.status, False, False, 0)
-        actions = Gtk.Box(spacing=8)
+        actions = Gtk.FlowBox()
+        actions.set_selection_mode(Gtk.SelectionMode.NONE)
+        actions.set_row_spacing(8)
+        actions.set_column_spacing(8)
+        actions.set_max_children_per_line(3)
         box.pack_end(actions, False, False, 0)
         self.save = Gtk.Button(label="Save draft")
         self.save.connect("clicked", self.save_draft)
-        actions.pack_start(self.save, False, False, 0)
+        actions.add(self.save)
         self.apply = Gtk.Button(label="Apply at next reboot…")
         self.apply.connect("clicked", self.apply_boot)
-        actions.pack_start(self.apply, False, False, 0)
+        actions.add(self.apply)
         diagnostic = Gtk.Button(label="Export diagnostics…")
         diagnostic.connect("clicked", self.export_diagnostics)
-        actions.pack_start(diagnostic, False, False, 0)
+        actions.add(diagnostic)
         probe = Gtk.Button(label="Probe live access…")
         probe.connect("clicked", self.export_live_probe)
-        actions.pack_start(probe, False, False, 0)
+        actions.add(probe)
         audit = Gtk.Button(label="Export boot audit…")
         audit.connect("clicked", self.export_boot_audit)
-        actions.pack_start(audit, False, False, 0)
+        actions.add(audit)
         confirm = Gtk.Button(label="Confirm boot margins")
         confirm.connect("clicked", self.confirm_boot)
-        actions.pack_start(confirm, False, False, 0)
+        actions.add(confirm)
         refresh = Gtk.Button(label="Refresh")
         refresh.connect("clicked", self.refresh)
-        actions.pack_start(refresh, False, False, 0)
+        actions.add(refresh)
         self.refresh()
 
     def selected(self):
@@ -116,7 +120,7 @@ class Window(Gtk.Window):
         response = self.message(
             f"Apply boot margins for {output['name']}?\n\n{detail}\n\n"
             "This modifies /boot/firmware/cmdline.txt with administrator authorization "
-            "and makes a backup. A reboot is required. If unconfirmed, the original boot configuration is restored on the second reboot; a third reboot activates the restoration. "
+            "and makes a backup. Reboot to test, then confirm the display works. If not confirmed, the original boot configuration is restored on the second reboot; a third reboot activates the restoration. Note: this is not a timed automatic reboot, "
             "and a compositor may override the margins.",
             Gtk.MessageType.QUESTION, Gtk.ButtonsType.OK_CANCEL
         )

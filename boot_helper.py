@@ -20,6 +20,8 @@ def apply(connector, margins, path=Path("/boot/firmware/cmdline.txt")):
     new = replace_video_argument(old, connector, margins)
     if new == old:
         return "No changes required"
+    if not Path('/etc/systemd/system/multi-user.target.wants/raspberry-pi-overscan-rollback.service').exists():
+        raise RuntimeError('Rollback service is not enabled; refusing boot change')
     if STATE.exists():
         raise RuntimeError("A boot test is already pending; confirm or recover it first")
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")

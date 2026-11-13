@@ -1,5 +1,6 @@
 """Privileged boot editor: only edits the kernel's video argument."""
 import argparse
+import fcntl
 import os
 import shutil
 import sys
@@ -11,6 +12,15 @@ from boot_rollback import arm, STATE
 
 
 def apply(connector, margins, path=Path("/boot/firmware/cmdline.txt")):
+    """Serialize the entire edit with recovery and confirmation."""
+    STATE.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    with open(STATE.parent / "recovery.lock", "a+b") as lock:
+        os.fchmod(lock.fileno(), 0o600)
+        fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+        return _apply_locked(connector, margins, path)
+
+
+def _apply_locked(connector, margins, path):
     if not CONNECTOR.fullmatch(connector):
         raise ValueError("Invalid connector")
     validate_margins(margins)

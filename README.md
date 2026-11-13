@@ -44,6 +44,12 @@ See [Live adjustment architecture](docs/live-adjustment-architecture.md) for the
 
 See also the [VC4 kernel and compositor source review](docs/vc4-source-review.md) for the evidence supporting atomic margin updates and the remaining integration risks.
 
+## v0.4.0: read-only boot margin audit
+
+Click **Export boot audit…** to create `overscan-boot-audit.json`. This report compares only margin-bearing `video=...` arguments in `/boot/firmware/cmdline.txt` with the four currently readable DRM margin values on connected outputs. It does not export unrelated kernel arguments and does not change the display. A match alone does not establish that the setting will persist across a reboot or that the compositor never overrides it.
+
+For the initial test, **do not click Apply at next reboot**. Upload the audit report so we can decide whether a standard userspace configuration mechanism is viable before investigating compositor modifications.
+
 ## Not yet implemented
 
 - Live adjustment, countdown rollback, and verified persistent compensation under labwc

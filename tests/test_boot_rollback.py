@@ -124,7 +124,7 @@ class RollbackTests(unittest.TestCase):
         self.assertEqual(self.cmdline.read_bytes(), self.old)
         self.assertTrue(self.state.exists())
         self.boot = "boot-2"
-        self.assertIn("never completed", rollback.recover(self.state, self.cmdline))
+        self.assertIn("Original configuration present", rollback.recover(self.state, self.cmdline))
         self.assertFalse(self.state.exists())
 
     def test_timeout_does_not_reboot_staging_boot(self):

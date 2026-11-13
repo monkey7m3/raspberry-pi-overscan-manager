@@ -43,19 +43,9 @@ jobs:
           test -f /tmp/overscan-package/lib/systemd/system/raspberry-pi-overscan-rollback.service
           test -f /tmp/overscan-package/usr/lib/raspberry-pi-overscan-manager/boot_rollback.py
           test -x /tmp/overscan-control/postinst
-          grep -q '^Before=display-manager.service multi-user.target
-        with:
-          name: deb-${{ matrix.arch }}
-          path: dist/*.deb
-          if-no-files-found: error
- /tmp/overscan-package/lib/systemd/system/raspberry-pi-overscan-rollback.service
-          grep -q '^WantedBy=multi-user.target
-        with:
-          name: deb-${{ matrix.arch }}
-          path: dist/*.deb
-          if-no-files-found: error
- /tmp/overscan-package/lib/systemd/system/raspberry-pi-overscan-rollback.service
-          grep -q 'systemctl enable raspberry-pi-overscan-rollback.service' /tmp/overscan-control/postinst
+          grep -Fq 'Before=display-manager.service multi-user.target' /tmp/overscan-package/lib/systemd/system/raspberry-pi-overscan-rollback.service
+          grep -Fq 'WantedBy=multi-user.target' /tmp/overscan-package/lib/systemd/system/raspberry-pi-overscan-rollback.service
+          grep -Fq 'systemctl enable raspberry-pi-overscan-rollback.service' /tmp/overscan-control/postinst
       - uses: actions/upload-artifact@v4
         with:
           name: deb-${{ matrix.arch }}

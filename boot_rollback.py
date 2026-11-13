@@ -6,6 +6,7 @@ Confirmation removes pending state and leaves the new configuration in place.
 """
 import json
 import fcntl
+import errno
 import os
 import stat
 from pathlib import Path
@@ -28,7 +29,13 @@ def atomic_write(path, data, mode=0o600):
         os.replace(tmp, path)
         dirfd = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY)
         try:
-            os.fsync(dirfd)
+            try:
+                os.fsync(dirfd)
+            except OSError as exc:
+                # FAT boot partitions may not support syncing a directory.
+                # The replacement file itself has already been fsynced.
+                if exc.errno not in (errno.EINVAL, errno.ENOTSUP, errno.EOPNOTSUPP):
+                    raise
         finally:
             os.close(dirfd)
     finally:

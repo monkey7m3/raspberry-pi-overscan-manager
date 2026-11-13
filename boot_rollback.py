@@ -5,6 +5,7 @@ its boot ID; a second distinct boot restores the exact original cmdline bytes.
 Confirmation removes pending state and leaves the new configuration in place.
 """
 import json
+import fcntl
 import os
 import stat
 from pathlib import Path
@@ -135,18 +136,25 @@ def main():
     args = parser.parse_args()
     if os.geteuid() != 0:
         parser.error("root permission required")
-    if args.action == "recover":
-        print(recover())
-    elif args.action == "confirm":
-        print(confirm())
-    elif args.action == "expire":
-        print(expire())
-    else:
-        data = load()
-        print(json.dumps({
-            "pending": data is not None,
-            "first_test_boot_seen": bool(data and data["first_test_boot_id"]),
-        }))
+    # Serialize recovery, expiry and confirmation. Otherwise the timeout can
+    # read pending state while confirmation is removing it and reboot anyway.
+    STATE.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    lock_path = STATE.parent / "recovery.lock"
+    with open(lock_path, "a+b") as lock:
+        os.fchmod(lock.fileno(), 0o600)
+        fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+        if args.action == "recover":
+            print(recover())
+        elif args.action == "confirm":
+            print(confirm())
+        elif args.action == "expire":
+            print(expire())
+        else:
+            data = load()
+            print(json.dumps({
+                "pending": data is not None,
+                "first_test_boot_seen": bool(data and data["first_test_boot_id"]),
+            }))
 
 
 if __name__ == "__main__":

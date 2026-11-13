@@ -47,6 +47,9 @@ class Window(Gtk.Window):
         diagnostic = Gtk.Button(label="Export diagnostics…")
         diagnostic.connect("clicked", self.export_diagnostics)
         actions.pack_start(diagnostic, False, False, 0)
+        probe = Gtk.Button(label="Probe live access…")
+        probe.connect("clicked", self.export_live_probe)
+        actions.pack_start(probe, False, False, 0)
         refresh = Gtk.Button(label="Refresh")
         refresh.connect("clicked", self.refresh)
         actions.pack_start(refresh, False, False, 0)
@@ -157,6 +160,29 @@ class Window(Gtk.Window):
             self.message("Read-only diagnostics saved to:\n" + filename)
         except (OSError, ValueError) as exc:
             self.message(str(exc), Gtk.MessageType.ERROR)
+
+    def export_live_probe(self, *_):
+        import json
+        from live_probe import gather
+        dialog = Gtk.FileChooserDialog(
+            title="Save read-only live access probe", transient_for=self,
+            action=Gtk.FileChooserAction.SAVE
+        )
+        dialog.add_buttons(
+            Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
+            Gtk.STOCK_SAVE, Gtk.ResponseType.OK
+        )
+        dialog.set_current_name("overscan-live-probe.json")
+        dialog.set_do_overwrite_confirmation(True)
+        response = dialog.run()
+        filename = dialog.get_filename() if response == Gtk.ResponseType.OK else None
+        dialog.destroy()
+        if filename:
+            try:
+                Path(filename).write_text(json.dumps(gather(), indent=2) + "\n")
+                self.message("Read-only probe saved to:\n" + filename)
+            except OSError as exc:
+                self.message(str(exc), Gtk.MessageType.ERROR)
 
     def refresh(self, *_):
         self.outputs = discover()

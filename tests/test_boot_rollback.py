@@ -80,6 +80,36 @@ class RollbackTests(unittest.TestCase):
         rollback.recover(self.state, self.cmdline)
         self.assertEqual(stat.S_IMODE(self.cmdline.stat().st_mode), 0o640)
 
+    def test_timeout_restores_and_requests_reboot(self):
+        self.arm()
+        self.cmdline.write_bytes(self.new)
+        self.boot = "boot-1"
+        rollback.recover(self.state, self.cmdline)
+        with patch("subprocess.run") as run:
+            self.assertIn("reboot requested", rollback.expire(self.state, self.cmdline))
+            run.assert_called_once_with(
+                ["/usr/bin/systemctl", "--no-block", "reboot"], check=True
+            )
+        self.assertEqual(self.cmdline.read_bytes(), self.old)
+        self.assertFalse(self.state.exists())
+
+    def test_timeout_does_not_reboot_staging_boot(self):
+        self.arm()
+        self.cmdline.write_bytes(self.new)
+        with patch("subprocess.run") as run:
+            self.assertIn("No active", rollback.expire(self.state, self.cmdline))
+            run.assert_not_called()
+
+    def test_timeout_after_confirmation_is_noop(self):
+        self.arm()
+        self.cmdline.write_bytes(self.new)
+        self.boot = "boot-1"
+        rollback.recover(self.state, self.cmdline)
+        rollback.confirm(self.state, self.cmdline)
+        with patch("subprocess.run") as run:
+            self.assertIn("No active", rollback.expire(self.state, self.cmdline))
+            run.assert_not_called()
+
     def test_second_transaction_rejected(self):
         self.arm()
         with self.assertRaises(RuntimeError):

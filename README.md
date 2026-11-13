@@ -17,7 +17,7 @@ Early-development GTK3 interface for Raspberry Pi OS (initially tested against P
 Download a package from [Actions](../../actions) on the development branch. Unzip its uploaded artifact, then run:
 
 ```bash
-sudo apt install ./raspberry-pi-overscan-manager_0.1.0_arm64.deb
+sudo apt install ./raspberry-pi-overscan-manager_0.2.0_arm64.deb
 ```
 
 Use the ARMHF package on 32-bit Raspberry Pi OS. Launch from Preferences or run `raspberry-pi-overscan-manager`.
@@ -25,6 +25,12 @@ Use the ARMHF package on 32-bit Raspberry Pi OS. Launch from Preferences or run 
 **First tests:** use **Refresh** and inspect the detected margin values, then **Save draft**. Saving a draft does not alter the screen or boot configuration.
 
 **Risk of boot changes:** `Apply at next reboot…` changes the kernel command line, not the current desktop, and requires reboot. **There is no automatic rollback**. In this preview the changes might have no effect under labwc. Do not use the boot-change operation unless you have an alternative way to recover the Pi (SSH or access to the boot card). To undo, restore a `cmdline.txt.overscan-manager.*.bak` backup or remove the added `video=` margin arguments.
+
+## Read-only diagnostic test (v0.2.0)
+
+Open the application and click **Export diagnostics…**. Save the JSON report and share it for analysis. This reads connector state, KMS margin metadata, labwc version, and `wlr-randr` output. It does **not** write display properties, alter boot settings, or request administrator access. The report deliberately excludes raw EDID, the kernel command line, and user settings.
+
+The exported report helps identify the available compositor interfaces but cannot, by itself, prove that live margin writes are possible.
 
 ## Not yet implemented
 
@@ -39,7 +45,7 @@ Wayland output scaling is not equivalent to KMS overscan correction. The planned
 
 ```bash
 python3 -m unittest discover -s tests -v
-python3 -m compileall -q backend.py app.py boot_helper.py
+python3 -m compileall -q backend.py app.py boot_helper.py diagnostics.py
 sh ./build-deb.sh arm64
 ```
 

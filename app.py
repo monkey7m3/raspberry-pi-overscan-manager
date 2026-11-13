@@ -1,5 +1,6 @@
 """GTK3 interface for Raspberry Pi Overscan Manager."""
 import subprocess
+from pathlib import Path
 import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
@@ -43,6 +44,9 @@ class Window(Gtk.Window):
         self.apply = Gtk.Button(label="Apply at next reboot…")
         self.apply.connect("clicked", self.apply_boot)
         actions.pack_start(self.apply, False, False, 0)
+        diagnostic = Gtk.Button(label="Export diagnostics…")
+        diagnostic.connect("clicked", self.export_diagnostics)
+        actions.pack_start(diagnostic, False, False, 0)
         refresh = Gtk.Button(label="Refresh")
         refresh.connect("clicked", self.refresh)
         actions.pack_start(refresh, False, False, 0)
@@ -129,6 +133,30 @@ class Window(Gtk.Window):
             return
         self.save_draft()
         self.message("Boot configuration updated. Reboot to test.\n" + result.stdout)
+
+    def export_diagnostics(self, *_):
+        dialog = Gtk.FileChooserDialog(
+            title="Save read-only display diagnostics", transient_for=self,
+            action=Gtk.FileChooserAction.SAVE
+        )
+        dialog.add_buttons(
+            Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
+            Gtk.STOCK_SAVE, Gtk.ResponseType.OK
+        )
+        dialog.set_current_name("overscan-diagnostics.json")
+        dialog.set_do_overwrite_confirmation(True)
+        response = dialog.run()
+        filename = dialog.get_filename() if response == Gtk.ResponseType.OK else None
+        dialog.destroy()
+        if not filename:
+            return
+        try:
+            from diagnostics import gather
+            import json
+            Path(filename).write_text(json.dumps(gather(), indent=2) + "\n")
+            self.message("Read-only diagnostics saved to:\n" + filename)
+        except (OSError, ValueError) as exc:
+            self.message(str(exc), Gtk.MessageType.ERROR)
 
     def refresh(self, *_):
         self.outputs = discover()

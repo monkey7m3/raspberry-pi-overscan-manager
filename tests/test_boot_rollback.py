@@ -1,0 +1,82 @@
+"""Isolated tests: no root, no reboot, no real boot file writes."""
+import json
+import tempfile
+import unittest
+from pathlib import Path
+from unittest.mock import patch
+
+import boot_rollback as rollback
+
+
+class RollbackTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        root = Path(self.tmp.name)
+        self.state = root / "pending.json"
+        self.cmdline = root / "cmdline.txt"
+        self.old = b"console=tty1 video=HDMI-A-1:margin_left=76\n"
+        self.new = b"console=tty1 video=HDMI-A-1:margin_left=77\n"
+        self.cmdline.write_bytes(self.old)
+        self.boot = "boot-0"
+        patcher = patch.object(rollback, "current_boot_id", side_effect=lambda: self.boot)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def arm(self):
+        rollback.arm(self.old, self.new, self.state)
+
+    def test_full_recovery_after_two_reboots(self):
+        self.arm()
+        self.cmdline.write_bytes(self.new)
+        self.assertIn("Waiting", rollback.recover(self.state, self.cmdline))
+        self.boot = "boot-1"
+        self.assertIn("First test boot", rollback.recover(self.state, self.cmdline))
+        self.assertEqual(self.cmdline.read_bytes(), self.new)
+        self.assertIn("Awaiting", rollback.recover(self.state, self.cmdline))
+        self.boot = "boot-2"
+        self.assertIn("restored", rollback.recover(self.state, self.cmdline))
+        self.assertEqual(self.cmdline.read_bytes(), self.old)
+        self.assertFalse(self.state.exists())
+
+    def test_confirmation_keeps_settings(self):
+        self.arm()
+        self.cmdline.write_bytes(self.new)
+        with self.assertRaises(RuntimeError):
+            rollback.confirm(self.state, self.cmdline)
+        self.boot = "boot-1"
+        rollback.recover(self.state, self.cmdline)
+        rollback.confirm(self.state, self.cmdline)
+        self.assertFalse(self.state.exists())
+        self.assertEqual(self.cmdline.read_bytes(), self.new)
+
+    def test_crash_before_boot_file_write(self):
+        self.arm()
+        self.boot = "boot-1"
+        self.assertIn("never completed", rollback.recover(self.state, self.cmdline))
+        self.assertFalse(self.state.exists())
+        self.assertEqual(self.cmdline.read_bytes(), self.old)
+
+    def test_external_change_not_overwritten(self):
+        self.arm()
+        self.cmdline.write_bytes(b"unexpected change\n")
+        self.boot = "boot-1"
+        with self.assertRaises(RuntimeError):
+            rollback.recover(self.state, self.cmdline)
+        self.assertTrue(self.state.exists())
+
+    def test_second_transaction_rejected(self):
+        self.arm()
+        with self.assertRaises(RuntimeError):
+            self.arm()
+
+    def test_confirm_requires_expected_cmdline(self):
+        self.arm()
+        self.boot = "boot-1"
+        self.cmdline.write_bytes(b"modified\n")
+        with self.assertRaises(RuntimeError):
+            rollback.confirm(self.state, self.cmdline)
+
+
+if __name__ == "__main__":
+    unittest.main()

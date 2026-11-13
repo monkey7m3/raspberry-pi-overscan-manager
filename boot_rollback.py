@@ -6,6 +6,7 @@ Confirmation removes pending state and leaves the new configuration in place.
 """
 import json
 import os
+import stat
 from pathlib import Path
 
 STATE = Path("/var/lib/raspberry-pi-overscan-manager/pending.json")
@@ -13,15 +14,22 @@ BOOT_ID = Path("/proc/sys/kernel/random/boot_id")
 CMDLINE = Path("/boot/firmware/cmdline.txt")
 
 
-def atomic_write(path, data):
-    path.parent.mkdir(parents=True, exist_ok=True)
+def atomic_write(path, data, mode=0o600):
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     tmp = path.with_name(path.name + ".tmp." + str(os.getpid()))
     try:
-        with open(tmp, "xb") as handle:
+        fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, mode)
+        with os.fdopen(fd, "wb") as handle:
+            os.fchmod(handle.fileno(), mode)
             handle.write(data)
             handle.flush()
             os.fsync(handle.fileno())
         os.replace(tmp, path)
+        dirfd = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            os.fsync(dirfd)
+        finally:
+            os.close(dirfd)
     finally:
         tmp.unlink(missing_ok=True)
 
@@ -75,7 +83,8 @@ def recover(state=STATE, cmdline=CMDLINE):
         return "First test boot; awaiting confirmation"
     if boot == data["first_test_boot_id"]:
         return "Awaiting confirmation"
-    atomic_write(cmdline, original)
+    original_mode = stat.S_IMODE(cmdline.stat().st_mode)
+    atomic_write(cmdline, original, mode=original_mode)
     state.unlink()
     return "Original boot configuration restored; reboot again to activate"
 

@@ -35,6 +35,27 @@ jobs:
           dpkg-deb --contents dist/*.deb | grep -F '/lib/systemd/system/raspberry-pi-overscan-rollback.service'
           dpkg-deb --contents dist/*.deb | grep -F '/usr/lib/raspberry-pi-overscan-manager/boot_rollback.py'
           dpkg-deb --ctrl-tarfile dist/*.deb | tar -tf - | grep -F './postinst'
+      - name: Validate extracted service and install hooks
+        run: |
+          mkdir -p /tmp/overscan-package /tmp/overscan-control
+          dpkg-deb --extract dist/*.deb /tmp/overscan-package
+          dpkg-deb --control dist/*.deb /tmp/overscan-control
+          test -f /tmp/overscan-package/lib/systemd/system/raspberry-pi-overscan-rollback.service
+          test -f /tmp/overscan-package/usr/lib/raspberry-pi-overscan-manager/boot_rollback.py
+          test -x /tmp/overscan-control/postinst
+          grep -q '^Before=display-manager.service multi-user.target
+        with:
+          name: deb-${{ matrix.arch }}
+          path: dist/*.deb
+          if-no-files-found: error
+ /tmp/overscan-package/lib/systemd/system/raspberry-pi-overscan-rollback.service
+          grep -q '^WantedBy=multi-user.target
+        with:
+          name: deb-${{ matrix.arch }}
+          path: dist/*.deb
+          if-no-files-found: error
+ /tmp/overscan-package/lib/systemd/system/raspberry-pi-overscan-rollback.service
+          grep -q 'systemctl enable raspberry-pi-overscan-rollback.service' /tmp/overscan-control/postinst
       - uses: actions/upload-artifact@v4
         with:
           name: deb-${{ matrix.arch }}

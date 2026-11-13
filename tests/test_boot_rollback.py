@@ -51,6 +51,23 @@ class RollbackTests(unittest.TestCase):
         self.assertFalse(self.state.exists())
         self.assertEqual(self.cmdline.read_bytes(), self.new)
 
+    def test_confirm_rejects_unregistered_test_boot(self):
+        self.arm()
+        self.cmdline.write_bytes(self.new)
+        self.boot = "boot-1"
+        with self.assertRaisesRegex(RuntimeError, "not registered"):
+            rollback.confirm(self.state, self.cmdline)
+        self.assertTrue(self.state.exists())
+
+    def test_confirm_rejects_subsequent_boot_without_recovery(self):
+        self.arm()
+        self.cmdline.write_bytes(self.new)
+        self.boot = "boot-1"
+        rollback.recover(self.state, self.cmdline)
+        self.boot = "boot-2"
+        with self.assertRaisesRegex(RuntimeError, "not registered"):
+            rollback.confirm(self.state, self.cmdline)
+
     def test_crash_before_boot_file_write(self):
         self.arm()
         self.boot = "boot-1"

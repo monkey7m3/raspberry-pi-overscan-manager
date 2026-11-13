@@ -110,6 +110,20 @@ class RollbackTests(unittest.TestCase):
         self.assertEqual(self.cmdline.read_bytes(), self.old)
         self.assertFalse(self.state.exists())
 
+    def test_failed_reboot_request_preserves_recovery_record(self):
+        self.arm()
+        self.cmdline.write_bytes(self.new)
+        self.boot = "boot-1"
+        rollback.recover(self.state, self.cmdline)
+        with patch("subprocess.run", side_effect=__import__("subprocess").CalledProcessError(1, "systemctl")):
+            with self.assertRaises(__import__("subprocess").CalledProcessError):
+                rollback.expire(self.state, self.cmdline)
+        self.assertEqual(self.cmdline.read_bytes(), self.old)
+        self.assertTrue(self.state.exists())
+        self.boot = "boot-2"
+        self.assertIn("never completed", rollback.recover(self.state, self.cmdline))
+        self.assertFalse(self.state.exists())
+
     def test_timeout_does_not_reboot_staging_boot(self):
         self.arm()
         self.cmdline.write_bytes(self.new)

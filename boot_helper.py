@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from backend import CONNECTOR, EDGES, replace_video_argument, validate_margins
+from boot_rollback import arm, STATE
 
 
 def apply(connector, margins, path=Path("/boot/firmware/cmdline.txt")):
@@ -19,6 +20,8 @@ def apply(connector, margins, path=Path("/boot/firmware/cmdline.txt")):
     new = replace_video_argument(old, connector, margins)
     if new == old:
         return "No changes required"
+    if STATE.exists():
+        raise RuntimeError("A boot test is already pending; confirm or recover it first")
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     backup = path.with_name(
         path.name + f".overscan-manager.{timestamp}.{os.getpid()}.bak"
@@ -26,9 +29,15 @@ def apply(connector, margins, path=Path("/boot/firmware/cmdline.txt")):
     shutil.copy2(path, backup)
     temp = path.with_name(path.name + f".overscan-manager.{os.getpid()}.tmp")
     try:
+        arm(old.encode(), new.encode())
         temp.write_text(new)
         shutil.copymode(path, temp)
         os.replace(temp, path)
+    except Exception:
+        # If the boot file has not changed, disarm the incomplete transaction.
+        if path.read_text() == old:
+            STATE.unlink(missing_ok=True)
+        raise
     finally:
         temp.unlink(missing_ok=True)
     return f"Backup: {backup}"

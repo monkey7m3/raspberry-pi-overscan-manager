@@ -36,7 +36,9 @@ class RollbackTests(unittest.TestCase):
         self.assertEqual(self.cmdline.read_bytes(), self.new)
         self.assertIn("Awaiting", rollback.recover(self.state, self.cmdline))
         self.boot = "boot-2"
-        self.assertIn("restored", rollback.recover(self.state, self.cmdline))
+        with patch("subprocess.run") as run:
+            self.assertIn("restored", rollback.recover(self.state, self.cmdline))
+            run.assert_called_once_with(["/usr/bin/systemctl", "--no-block", "reboot"], check=True)
         self.assertEqual(self.cmdline.read_bytes(), self.old)
         self.assertFalse(self.state.exists())
 
@@ -71,7 +73,7 @@ class RollbackTests(unittest.TestCase):
     def test_crash_before_boot_file_write(self):
         self.arm()
         self.boot = "boot-1"
-        self.assertIn("never completed", rollback.recover(self.state, self.cmdline))
+        self.assertIn("Original configuration present", rollback.recover(self.state, self.cmdline))
         self.assertFalse(self.state.exists())
         self.assertEqual(self.cmdline.read_bytes(), self.old)
 
@@ -94,7 +96,8 @@ class RollbackTests(unittest.TestCase):
         self.boot = "boot-1"
         rollback.recover(self.state, self.cmdline)
         self.boot = "boot-2"
-        rollback.recover(self.state, self.cmdline)
+        with patch("subprocess.run"):
+            rollback.recover(self.state, self.cmdline)
         self.assertEqual(stat.S_IMODE(self.cmdline.stat().st_mode), 0o640)
 
     def test_timeout_restores_and_requests_reboot(self):

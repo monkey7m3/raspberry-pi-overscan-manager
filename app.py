@@ -50,6 +50,9 @@ class Window(Gtk.Window):
         probe = Gtk.Button(label="Probe live access…")
         probe.connect("clicked", self.export_live_probe)
         actions.pack_start(probe, False, False, 0)
+        audit = Gtk.Button(label="Export boot audit…")
+        audit.connect("clicked", self.export_boot_audit)
+        actions.pack_start(audit, False, False, 0)
         refresh = Gtk.Button(label="Refresh")
         refresh.connect("clicked", self.refresh)
         actions.pack_start(refresh, False, False, 0)
@@ -181,6 +184,29 @@ class Window(Gtk.Window):
             try:
                 Path(filename).write_text(json.dumps(gather(), indent=2) + "\n")
                 self.message("Read-only probe saved to:\n" + filename)
+            except OSError as exc:
+                self.message(str(exc), Gtk.MessageType.ERROR)
+
+    def export_boot_audit(self, *_):
+        import json
+        from boot_audit import gather
+        dialog = Gtk.FileChooserDialog(
+            title="Save read-only boot margin audit", transient_for=self,
+            action=Gtk.FileChooserAction.SAVE
+        )
+        dialog.add_buttons(
+            Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
+            Gtk.STOCK_SAVE, Gtk.ResponseType.OK
+        )
+        dialog.set_current_name("overscan-boot-audit.json")
+        dialog.set_do_overwrite_confirmation(True)
+        response = dialog.run()
+        filename = dialog.get_filename() if response == Gtk.ResponseType.OK else None
+        dialog.destroy()
+        if filename:
+            try:
+                Path(filename).write_text(json.dumps(gather(), indent=2) + "\\n")
+                self.message("Read-only boot audit saved to:\\n" + filename)
             except OSError as exc:
                 self.message(str(exc), Gtk.MessageType.ERROR)
 

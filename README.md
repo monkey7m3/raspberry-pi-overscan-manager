@@ -17,14 +17,14 @@ Early-development GTK3 interface for Raspberry Pi OS (initially tested against P
 Download a package from [Actions](../../actions) on the development branch. Unzip its uploaded artifact, then run:
 
 ```bash
-sudo apt install ./raspberry-pi-overscan-manager_0.3.0_arm64.deb
+sudo apt install ./raspberry-pi-overscan-manager_0.5.0_arm64.deb
 ```
 
 Use the ARMHF package on 32-bit Raspberry Pi OS. Launch from Preferences or run `raspberry-pi-overscan-manager`.
 
 **First tests:** use **Refresh** and inspect the detected margin values, then **Save draft**. Saving a draft does not alter the screen or boot configuration.
 
-**Risk of boot changes:** `Apply at next reboot…` changes the kernel command line, not the current desktop, and requires reboot. **There is no automatic rollback**. In this preview the changes might have no effect under labwc. Do not use the boot-change operation unless you have an alternative way to recover the Pi (SSH or access to the boot card). To undo, restore a `cmdline.txt.overscan-manager.*.bak` backup or remove the added `video=` margin arguments.
+**Risk of boot changes:** `Apply at next reboot…` changes the kernel command line, not the current desktop, and requires reboot. **v0.5.0 includes an experimental boot rollback service, but its actual reboot behavior has not been validated on hardware**. In this preview the changes might have no effect under labwc. Do not use the boot-change operation unless you have an alternative way to recover the Pi (SSH or access to the boot card). To undo, restore a `cmdline.txt.overscan-manager.*.bak` backup or remove the added `video=` margin arguments.
 
 ## Read-only diagnostic test (v0.2.0)
 
@@ -50,9 +50,13 @@ Click **Export boot audit…** to create `overscan-boot-audit.json`. This report
 
 For the initial test, **do not click Apply at next reboot**. Upload the audit report so we can decide whether a standard userspace configuration mechanism is viable before investigating compositor modifications.
 
+## v0.5.0: rollback development status
+
+The boot rollback service stores the original command line in a root-only state file and tracks boot IDs. The first boot with the changed settings is the test boot; if the user does not confirm, the next reboot restores the original cmdline file, and another reboot is required to activate that restoration. Unit tests cover interrupted writes, confirmation, mismatched configuration, and file permissions. **Do not use the Apply button until hardware recovery testing is authorized and completed.**
+
 ## Not yet implemented
 
-- Live adjustment, countdown rollback, and verified persistent compensation under labwc
+- Live adjustment, hardware-validated boot rollback, and verified persistent compensation under labwc
 - Alternative compositor-specific underscan mechanisms and Wayland output scaling controls
 - Reliable cross-model and multi-card support beyond VC4
 - Automated UI or hardware tests
@@ -63,7 +67,7 @@ Wayland output scaling is not equivalent to KMS overscan correction. The planned
 
 ```bash
 python3 -m unittest discover -s tests -v
-python3 -m compileall -q backend.py app.py boot_helper.py diagnostics.py live_probe.py
+python3 -m compileall -q backend.py app.py boot_helper.py boot_rollback.py boot_audit.py diagnostics.py live_probe.py
 sh ./build-deb.sh arm64
 ```
 

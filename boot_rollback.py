@@ -120,6 +120,8 @@ def confirm(state=STATE, cmdline=CMDLINE):
         raise RuntimeError("No pending boot test")
     if current_boot_id() == data["created_boot_id"]:
         raise RuntimeError("Reboot and verify the display before confirming")
+    if data["first_test_boot_id"] != current_boot_id():
+        raise RuntimeError("Recovery service has not registered this test boot; cannot confirm")
     if cmdline.read_bytes() != bytes.fromhex(data["expected_hex"]):
         raise RuntimeError("Boot configuration changed; cannot confirm")
     state.unlink()

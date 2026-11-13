@@ -15,7 +15,7 @@ Section: x11
 Priority: optional
 Architecture: $ARCH
 Maintainer: Raspberry Pi Overscan Manager contributors
-Depends: python3 (>= 3.11), python3-gi, gir1.2-gtk-3.0, libdrm-tests, pkexec
+Depends: python3 (>= 3.11), python3-gi, gir1.2-gtk-3.0, libdrm-tests, pkexec, systemd
 Description: GTK app for Raspberry Pi DRM/KMS overscan margins
  Find connected outputs and four independent margin properties.
  Boot-time adjustment needs authorization and a reboot.

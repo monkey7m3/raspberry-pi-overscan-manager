@@ -53,6 +53,9 @@ class Window(Gtk.Window):
         audit = Gtk.Button(label="Export boot audit…")
         audit.connect("clicked", self.export_boot_audit)
         actions.pack_start(audit, False, False, 0)
+        confirm = Gtk.Button(label="Confirm boot margins")
+        confirm.connect("clicked", self.confirm_boot)
+        actions.pack_start(confirm, False, False, 0)
         refresh = Gtk.Button(label="Refresh")
         refresh.connect("clicked", self.refresh)
         actions.pack_start(refresh, False, False, 0)
@@ -113,7 +116,7 @@ class Window(Gtk.Window):
         response = self.message(
             f"Apply boot margins for {output['name']}?\n\n{detail}\n\n"
             "This modifies /boot/firmware/cmdline.txt with administrator authorization "
-            "and makes a backup. A reboot is required. There is no automatic rollback, "
+            "and makes a backup. A reboot is required. If unconfirmed, the original boot configuration is restored on the second reboot; a third reboot activates the restoration. "
             "and a compositor may override the margins.",
             Gtk.MessageType.QUESTION, Gtk.ButtonsType.OK_CANCEL
         )
@@ -138,7 +141,7 @@ class Window(Gtk.Window):
             )
             return
         self.save_draft()
-        self.message("Boot configuration updated. Reboot to test.\n" + result.stdout)
+        self.message("Boot configuration updated. Reboot to test, then click Confirm boot margins if the display works. If you cannot confirm, reboot twice more to restore the previous display settings.\n" + result.stdout)
 
     def export_diagnostics(self, *_):
         dialog = Gtk.FileChooserDialog(
@@ -209,6 +212,29 @@ class Window(Gtk.Window):
                 self.message("Read-only boot audit saved to:\n" + filename)
             except OSError as exc:
                 self.message(str(exc), Gtk.MessageType.ERROR)
+
+    def confirm_boot(self, *_):
+        response = self.message(
+            "Keep the tested boot margins? Only confirm if you have rebooted "
+            "and verified that the display is usable.",
+            Gtk.MessageType.QUESTION, Gtk.ButtonsType.OK_CANCEL
+        )
+        if response != Gtk.ResponseType.OK:
+            return
+        try:
+            result = subprocess.run(
+                ["pkexec", "/usr/bin/python3",
+                 "/usr/lib/raspberry-pi-overscan-manager/boot_rollback.py",
+                 "confirm"],
+                capture_output=True, text=True, timeout=90
+            )
+            self.message(
+                result.stdout if result.returncode == 0 else
+                (result.stderr or "Unable to confirm"),
+                Gtk.MessageType.INFO if result.returncode == 0 else Gtk.MessageType.ERROR
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            self.message(str(exc), Gtk.MessageType.ERROR)
 
     def refresh(self, *_):
         self.outputs = discover()

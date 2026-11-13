@@ -59,16 +59,22 @@ def recover(state=STATE, cmdline=CMDLINE):
     boot = current_boot_id()
     if boot == data["created_boot_id"]:
         return "Waiting for first reboot"
+    # If power failed after arming but before updating cmdline, do not
+    # treat this as a display test. Remove the stale transaction safely.
+    original = bytes.fromhex(data["original_hex"])
+    expected = bytes.fromhex(data["expected_hex"])
+    actual = cmdline.read_bytes()
+    if actual == original:
+        state.unlink()
+        return "Boot change never completed; pending transaction cleared"
+    if actual != expected:
+        raise RuntimeError("Boot configuration changed externally; refusing to overwrite")
     if data["first_test_boot_id"] is None:
         data["first_test_boot_id"] = boot
         atomic_write(state, (json.dumps(data) + "\n").encode())
         return "First test boot; awaiting confirmation"
     if boot == data["first_test_boot_id"]:
         return "Awaiting confirmation"
-    original = bytes.fromhex(data["original_hex"])
-    expected = bytes.fromhex(data["expected_hex"])
-    if cmdline.read_bytes() != expected:
-        raise RuntimeError("Boot configuration changed externally; refusing to overwrite")
     atomic_write(cmdline, original)
     state.unlink()
     return "Original boot configuration restored; reboot again to activate"

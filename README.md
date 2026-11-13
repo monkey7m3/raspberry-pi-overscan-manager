@@ -40,6 +40,8 @@ Please upload the report to the project discussion. A successful open does **not
 
 **Do not run `modetest -w` or stop labwc as part of this test.** A truly safe live change-and-rollback experiment requires a compositor-coordinated mechanism or independently tested restoration.
 
+See [Live adjustment architecture](docs/live-adjustment-architecture.md) for the compositor feasibility findings, proposed backend design, and safety requirements.
+
 ## Not yet implemented
 
 - Live adjustment, countdown rollback, and verified persistent compensation under labwc

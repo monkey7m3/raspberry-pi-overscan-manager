@@ -1,0 +1,30 @@
+name: Validate wlroots patch series
+on:
+  push:
+    branches: [development]
+    paths:
+      - 'patches/wlroots-0.20.2-rpt4/**'
+      - 'tools/validate-wlroots-margin-patches.sh'
+      - '.github/workflows/wlroots-patch-validation.yml'
+  workflow_dispatch:
+
+jobs:
+  source-patches:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install patch utilities
+        run: sudo apt-get update && sudo apt-get install -y patch xz-utils bzip2
+      - name: Fetch matching Raspberry Pi source
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/wlroots-rpt4
+          base=https://archive.raspberrypi.com/debian/pool/main/w/wlroots
+          curl -fL --retry 3 "$base/wlroots_0.20.2.orig.tar.bz2" -o /tmp/wlroots-rpt4/orig.tar.bz2
+          curl -fL --retry 3 "$base/wlroots_0.20.2-1+rpt4.debian.tar.xz" -o /tmp/wlroots-rpt4/debian.tar.xz
+      - name: Apply downstream and experimental patches with zero fuzz
+        run: |
+          bash tools/validate-wlroots-margin-patches.sh \
+            /tmp/wlroots-rpt4/orig.tar.bz2 \
+            /tmp/wlroots-rpt4/debian.tar.xz \
+            patches/wlroots-0.20.2-rpt4

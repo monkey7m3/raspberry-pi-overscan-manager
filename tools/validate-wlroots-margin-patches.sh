@@ -16,6 +16,14 @@ root="$work/wlroots-0.20.2"
 test -d "$root"
 tar -xf "$debian" -C "$root"
 cd "$root"
+# Apply Raspberry Pi downstream changes first; the installed library includes them.
+if [[ -f debian/patches/series ]]; then
+  while IFS= read -r downstream || [[ -n "$downstream" ]]; do
+    [[ -z "$downstream" || "$downstream" == \#* ]] && continue
+    echo "Applying Raspberry Pi patch: $downstream"
+    patch --batch --fuzz=0 -p1 < "debian/patches/$downstream"
+  done < debian/patches/series
+fi
 for p in 0001-discover-connector-margins.patch 0002-stage-atomic-connector-margins.patch; do
   echo "Checking $p"
   patch --dry-run --fuzz=0 -p1 < "$patches/$p"
@@ -27,5 +35,5 @@ grep -q '"right margin", INDEX(margin_right)' backend/drm/properties.c
 grep -q '"top margin", INDEX(margin_top)' backend/drm/properties.c
 grep -q '"bottom margin", INDEX(margin_bottom)' backend/drm/properties.c
 grep -q 'if (state->set_margins)' backend/drm/atomic.c
-echo 'PASS: both patches applied with zero fuzz and expected code present'
+echo 'PASS: Raspberry Pi downstream patches plus both margin patches applied with zero fuzz'
 echo 'NOTE: no compile, labwc integration, DRM test, or restoration test was performed'

@@ -61,7 +61,13 @@ def run(connector, edge, write_test, device):
     setter.argtypes = [ctypes.c_int, ctypes.c_uint32, ctypes.c_uint32,
                        ctypes.c_uint32, ctypes.c_uint64]
     setter.restype = ctypes.c_int
-    fd = os.open(device, os.O_RDWR | os.O_CLOEXEC)
+    try:
+        fd = os.open(device, os.O_RDWR | os.O_CLOEXEC)
+    except OSError as exc:
+        output["result"] = "DRM device open rejected"
+        output["errno"] = exc.errno
+        output["error"] = str(exc)
+        return output
     try:
         def set_value(value):
             ctypes.set_errno(0)

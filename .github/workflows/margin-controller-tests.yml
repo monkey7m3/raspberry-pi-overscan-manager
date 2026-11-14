@@ -1,0 +1,23 @@
+name: Validate experimental margin controller
+
+on:
+  push:
+    branches: [development]
+    paths:
+      - 'experiments/**'
+      - 'tools/test-margin-state.sh'
+      - '.github/workflows/margin-controller-tests.yml'
+  pull_request:
+    paths:
+      - 'experiments/**'
+      - 'tools/test-margin-state.sh'
+      - '.github/workflows/margin-controller-tests.yml'
+  workflow_dispatch:
+
+jobs:
+  controller:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and execute margin controller tests
+        run: bash tools/test-margin-state.sh

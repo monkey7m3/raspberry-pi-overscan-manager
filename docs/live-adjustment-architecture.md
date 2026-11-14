@@ -4,7 +4,7 @@ Status: research/design, **not implemented**.
 
 ## Verified environment
 
-Pi 4, Raspberry Pi OS Trixie, labwc 0.20.2 / wlroots 0.20.2, vc4 DRM on /dev/dri/card1, HDMI-A-1 connected. Four connector properties (`left margin`, `right margin`, `top margin`, `bottom margin`) are readable with ranges 0–100 and initial values 76, 76, 44, 30. The normal user can open the DRM card and perform a read-only DRM ioctl. **No write or live change has been demonstrated.**
+Pi 4, Raspberry Pi OS Trixie, labwc 0.20.2 / wlroots 0.20.2, vc4 DRM on /dev/dri/card1, HDMI-A-1 connected. Four connector properties (`left margin`, `right margin`, `top margin`, `bottom margin`) are readable with ranges 0–100 and initial values 76, 76, 44, 30. The normal user can open the DRM card and perform a read-only DRM ioctl. A root-run standalone `drmModeObjectSetProperty` write returned **EACCES (errno 13)** while labwc was running; no visible live change has been demonstrated. Boot-time changes and unattended rollback were subsequently hardware-tested successfully.
 
 ## Findings from upstream interfaces
 
@@ -41,3 +41,18 @@ If feasible, define a small authenticated local IPC API in the compositor for `g
 ## Next development task
 
 Source-level feasibility review against **labwc 0.20.2 / wlroots 0.20.2** and the Raspberry Pi VC4 KMS driver. Identify the precise insertion point for a connector property update, confirm whether the driver permits it, and only then build an opt-in test harness. If this is not feasible without maintaining a compositor fork, investigate a persistent non-live alternative and clearly disclose its limitations.
+
+
+## 2026-11-13: post-EACCES source findings
+
+The standalone live-write probe read connector HDMI-A-1 (object ID 35) and four margin properties (IDs 37–40; values 77, 76, 44, 30). Its root-run attempt to set the left margin returned EACCES before any hold/restore interval. This strongly suggests DRM-master authorization, although errno alone does not prove which DRM permission check rejected the operation.
+
+In current upstream Linux VC4, `vc4_crtc_atomic_check()` compares the CRTC margins with `conn_state->tv.margins`, copies changed margins, and sets `crtc_state->zpos_changed = true` to force plane display-list updates. Thus VC4 has an atomic pathway to recalculate the visible image on margin changes: https://github.com/torvalds/linux/blob/master/drivers/gpu/drm/vc4/vc4_crtc.c . This is *source-level evidence*, not a hardware-verified live update on the Pi's installed kernel.
+
+wlroots' DRM backend uses its own connector state and `drm_crtc_commit` / atomic request construction for active outputs: https://github.com/swaywm/wlroots/blob/master/backend/drm/drm.c . The existing generic Wayland output-management interface does not express four-edge VC4 margin properties.
+
+**Likely implementation boundary:** add connector margin property discovery and atomic-request population to the version-matched wlroots DRM backend; expose a compositor-owned test/restore command through a narrowly scoped labwc integration. Merely adding a client-side ioctl, a GUI slider, or a Wayland protocol message will not bypass DRM-master requirements.
+
+**Before implementing a compositor fork:** inspect the *exact* wlroots 0.20.2 tag (not current main) for `backend/drm/atomic.c`, `backend/drm/properties.c`, `backend/drm/drm.c`, and connector state structs. Confirm whether margin property IDs are already enumerated, whether `DRM_MODE_ATOMIC_ALLOW_MODESET` or other CRTC/plane state is necessary, and whether commits can be triggered with no new framebuffer. The observed EACCES rules out the standalone approach in the current session but does not prove that a compositor-side atomic commit will visibly update margins.
+
+**Next deliverable:** version-matched source patch plus isolated test interface with compositor-owned 5-second rollback; retain the working boot-based implementation as a fallback. Do not install replacement wlroots/labwc binaries on the Pi before validating the build and rollback.

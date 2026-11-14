@@ -75,13 +75,12 @@ class Window(Gtk.Window):
             return
         margins = output["margins"]
         supported = len(margins) == 4
-        saved = self.settings.get(output["name"], {})
         for edge in EDGES:
             spin = self.spins[edge]
             if supported:
                 prop = margins[edge]
                 spin.set_range(prop.low, prop.high)
-                spin.set_value(saved.get(edge, prop.value))
+                spin.set_value(prop.value)
             spin.set_sensitive(supported)
         self.save.set_sensitive(supported)
         self.apply.set_sensitive(supported)
@@ -144,7 +143,6 @@ class Window(Gtk.Window):
                 Gtk.MessageType.ERROR
             )
             return
-        self.save_draft()
         self.message("Boot configuration updated. Reboot to test, then click Confirm boot margins if the display works. If you do not confirm within about 3 minutes after boot, the recovery service should restore the previous settings and reboot automatically.\n" + result.stdout)
 
     def export_diagnostics(self, *_):

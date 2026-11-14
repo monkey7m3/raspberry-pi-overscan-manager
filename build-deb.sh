@@ -7,7 +7,7 @@ VERSION="0.5.0"
 ROOT="dist/${PKG}_${VERSION}_${ARCH}"
 rm -rf "$ROOT"
 mkdir -p "$ROOT/DEBIAN" "$ROOT/usr/lib/$PKG" "$ROOT/usr/bin" "$ROOT/usr/share/applications" "$ROOT/lib/systemd/system"
-cp backend.py app.py boot_helper.py diagnostics.py live_probe.py boot_audit.py boot_rollback.py "$ROOT/usr/lib/$PKG/"
+cp backend.py app.py boot_helper.py diagnostics.py live_probe.py boot_audit.py boot_rollback.py live_write_probe.py "$ROOT/usr/lib/$PKG/"
 cat > "$ROOT/DEBIAN/control" <<CONTROL
 Package: $PKG
 Version: $VERSION

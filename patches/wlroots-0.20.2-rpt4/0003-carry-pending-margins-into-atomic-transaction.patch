@@ -13,7 +13,7 @@
  	int32_t refresh;
 --- a/backend/drm/drm.c
 +++ b/backend/drm/drm.c
-@@ -1982,6 +1982,15 @@
+@@ -1981,3 +1981,12 @@
  		drm_connector_state_init(conn_state, conn, &output_state->base);
 +		// Copy the connector's staged margins into this atomic transaction.
 +		// TEST_ONLY commits must not consume the pending request.
@@ -25,7 +25,7 @@
 +			conn_state->margin_bottom = conn->pending_margin_bottom;
 +		}
  		conn_states_len++;
-@@ -2012,6 +2021,15 @@
+@@ -2013,2 +2022,11 @@
  	ok = drm_commit(drm, &dev_state, flags, test_only);
 +	if (ok && !test_only) {
 +		for (size_t i = 0; i < conn_states_len; i++) {

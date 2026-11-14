@@ -1,0 +1,57 @@
+name: Build Debian packages
+on:
+  push:
+    branches: [main, development]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Unit tests
+        run: python3 -m unittest discover -s tests -v
+      - name: Compile source
+        run: python3 -m compileall -q backend.py app.py boot_helper.py boot_rollback.py boot_audit.py diagnostics.py live_probe.py
+  package:
+    needs: test
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        arch: [arm64, armhf]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build package
+        run: sh ./build-deb.sh "${{ matrix.arch }}"
+      - name: Inspect package metadata
+        run: dpkg-deb --info dist/*.deb
+      - name: Verify recovery service and scripts are packaged
+        run: |
+          dpkg-deb --contents dist/*.deb | grep -F '/lib/systemd/system/raspberry-pi-overscan-rollback.service'
+          dpkg-deb --contents dist/*.deb | grep -F '/usr/lib/raspberry-pi-overscan-manager/boot_rollback.py'
+          dpkg-deb --ctrl-tarfile dist/*.deb | tar -tf - | grep -F './postinst'
+      - name: Validate extracted service and install hooks
+        run: |
+          mkdir -p /tmp/overscan-package /tmp/overscan-control
+          dpkg-deb --extract dist/*.deb /tmp/overscan-package
+          dpkg-deb --control dist/*.deb /tmp/overscan-control
+          test -f /tmp/overscan-package/lib/systemd/system/raspberry-pi-overscan-rollback.service
+          test -f /tmp/overscan-package/usr/lib/raspberry-pi-overscan-manager/boot_rollback.py
+          test -f /tmp/overscan-package/lib/systemd/system/raspberry-pi-overscan-timeout.timer
+          test -f /tmp/overscan-package/lib/systemd/system/raspberry-pi-overscan-timeout.service
+          test -x /tmp/overscan-control/postinst
+          grep -Fq 'Before=display-manager.service multi-user.target' /tmp/overscan-package/lib/systemd/system/raspberry-pi-overscan-rollback.service
+          grep -Fq 'WantedBy=multi-user.target' /tmp/overscan-package/lib/systemd/system/raspberry-pi-overscan-rollback.service
+          grep -Fq 'systemctl enable raspberry-pi-overscan-rollback.service' /tmp/overscan-control/postinst
+          grep -Fq 'systemctl enable raspberry-pi-overscan-timeout.timer' /tmp/overscan-control/postinst
+          grep -Fq 'OnBootSec=3min' /tmp/overscan-package/lib/systemd/system/raspberry-pi-overscan-timeout.timer
+      - uses: actions/upload-artifact@v4
+        with:
+          name: deb-${{ matrix.arch }}
+          path: dist/*.deb
+          if-no-files-found: error

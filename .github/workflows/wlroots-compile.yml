@@ -1,0 +1,52 @@
+name: Compile Raspberry Pi wlroots margin prototype
+on:
+  push:
+    branches: [development]
+    paths:
+      - 'patches/wlroots-0.20.2-rpt4/**'
+      - '.github/workflows/wlroots-compile.yml'
+  workflow_dispatch:
+
+jobs:
+  compile:
+    runs-on: ubuntu-24.04-arm
+    container: debian:trixie
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install build dependencies
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            ca-certificates curl build-essential meson ninja-build pkg-config \
+            python3 python3-pip git patch xz-utils bzip2 \
+            libdrm-dev libgbm-dev libegl-dev libgles2-mesa-dev \
+            libwayland-dev wayland-protocols libxkbcommon-dev \
+            libinput-dev libudev-dev libseat-dev libpixman-1-dev \
+            libdisplay-info-dev libliftoff-dev libvulkan-dev \
+            libxcb1-dev libxcb-composite0-dev libxcb-render0-dev \
+            libxcb-xfixes0-dev libxcb-errors-dev libxcb-icccm4-dev \
+            libxcb-res0-dev libxcb-ewmh-dev libxcb-present-dev \
+            libxcb-dri3-dev libxcb-dri2-0-dev libxcb-randr0-dev \
+            libxcb-shm0-dev libxcb-xinput-dev libxcb-xkb-dev
+      - name: Download exact source and apply downstream patches
+        run: |
+          set -eux
+          mkdir -p /tmp/wlroots-src
+          base=https://archive.raspberrypi.com/debian/pool/main/w/wlroots
+          curl -fL --retry 3 "$base/wlroots_0.20.2.orig.tar.bz2" -o /tmp/wlroots-src/orig.tar.bz2
+          curl -fL --retry 3 "$base/wlroots_0.20.2-1+rpt4.debian.tar.xz" -o /tmp/wlroots-src/debian.tar.xz
+          tar -xf /tmp/wlroots-src/orig.tar.bz2 -C /tmp/wlroots-src
+          tar -xf /tmp/wlroots-src/debian.tar.xz -C /tmp/wlroots-src/wlroots-0.20.2
+          cd /tmp/wlroots-src/wlroots-0.20.2
+          while IFS= read -r p || [ -n "$p" ]; do
+            case "$p" in ''|\#*) continue ;; esac
+            patch --batch --fuzz=0 -p1 < "debian/patches/$p"
+          done < debian/patches/series
+          for p in "$GITHUB_WORKSPACE"/patches/wlroots-0.20.2-rpt4/*.patch; do
+            patch --batch --fuzz=0 -p1 < "$p"
+          done
+      - name: Configure and compile
+        run: |
+          cd /tmp/wlroots-src/wlroots-0.20.2
+          meson setup build -Dexamples=false -Dxwayland=disabled
+          meson compile -C build

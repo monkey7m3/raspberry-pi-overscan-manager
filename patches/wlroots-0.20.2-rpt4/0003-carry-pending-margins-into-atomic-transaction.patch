@@ -1,0 +1,39 @@
+--- a/include/backend/drm/drm.h
++++ b/include/backend/drm/drm.h
+@@ -222,4 +222,10 @@
+ 	uint32_t colorspace;
+ 	uint32_t hdr_output_metadata;
++
++	// Connector-local margin request, consumed only after a successful
++	// real atomic commit. No external request interface is provided yet.
++	bool margin_update_pending;
++	uint32_t pending_margin_left, pending_margin_right;
++	uint32_t pending_margin_top, pending_margin_bottom;
+ 
+ 	int32_t refresh;
+--- a/backend/drm/drm.c
++++ b/backend/drm/drm.c
+@@ -1964,2 +1964,11 @@
+ 		drm_connector_state_init(conn_state, conn, &output_state->base);
++		// Copy the connector's staged margins into this atomic transaction.
++		// TEST_ONLY commits must not consume the pending request.
++		if (conn->margin_update_pending) {
++			conn_state->set_margins = true;
++			conn_state->margin_left = conn->pending_margin_left;
++			conn_state->margin_right = conn->pending_margin_right;
++			conn_state->margin_top = conn->pending_margin_top;
++			conn_state->margin_bottom = conn->pending_margin_bottom;
++		}
+ 		conn_states_len++;
+@@ -1995,2 +2004,10 @@
+ 	ok = drm_commit(drm, &dev_state, flags, test_only);
++	if (ok && !test_only) {
++		for (size_t i = 0; i < conn_states_len; i++) {
++			struct wlr_drm_connector_state *state = &conn_states[i];
++			if (state->set_margins) {
++				state->connector->margin_update_pending = false;
++			}
++		}
++	}
+ 
+ out:

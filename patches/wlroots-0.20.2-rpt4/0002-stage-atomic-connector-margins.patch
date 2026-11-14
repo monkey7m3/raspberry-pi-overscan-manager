@@ -1,0 +1,37 @@
+--- a/include/backend/drm/drm.h
++++ b/include/backend/drm/drm.h
+@@ -164,6 +164,11 @@
+ 	bool vrr_enabled;
+ 	uint32_t colorspace;
+ 	uint32_t hdr_output_metadata;
++
++	// Optional per-commit connector margin update. Populated only by a
++	// compositor-controlled request; false preserves existing margins.
++	bool set_margins;
++	uint32_t margin_left, margin_right, margin_top, margin_bottom;
+ };
+ 
+ /**
+--- a/backend/drm/atomic.c
++++ b/backend/drm/atomic.c
+@@ -516,6 +516,20 @@
+ 	if (conn->props.hdr_output_metadata != 0) {
+ 		atomic_add(atom, conn->id, conn->props.hdr_output_metadata, state->hdr_output_metadata);
+ 	}
++	if (state->set_margins) {
++		// Refuse partial updates: all four connector properties are required.
++		if (conn->props.margin_left == 0 || conn->props.margin_right == 0 ||
++				conn->props.margin_top == 0 || conn->props.margin_bottom == 0) {
++			wlr_drm_conn_log(conn, WLR_ERROR,
++				"Cannot update margins: connector properties unavailable");
++			atom->failed = true;
++		} else {
++			atomic_add(atom, conn->id, conn->props.margin_left, state->margin_left);
++			atomic_add(atom, conn->id, conn->props.margin_right, state->margin_right);
++			atomic_add(atom, conn->id, conn->props.margin_top, state->margin_top);
++			atomic_add(atom, conn->id, conn->props.margin_bottom, state->margin_bottom);
++		}
++	}
+ 	atomic_add(atom, crtc->id, crtc->props.mode_id, state->mode_id);
+ 	atomic_add(atom, crtc->id, crtc->props.active, active);
+ 	if (active) {

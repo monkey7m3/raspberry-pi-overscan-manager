@@ -48,5 +48,5 @@ jobs:
       - name: Configure and compile
         run: |
           cd /tmp/wlroots-src/wlroots-0.20.2
-          meson setup build -Dexamples=false -Dtests=false -Dxwayland=disabled
+          meson setup build -Dexamples=false -Dxwayland=disabled
           meson compile -C build

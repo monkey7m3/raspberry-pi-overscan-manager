@@ -56,3 +56,25 @@ wlroots' DRM backend uses its own connector state and `drm_crtc_commit` / atomic
 **Before implementing a compositor fork:** inspect the *exact* wlroots 0.20.2 tag (not current main) for `backend/drm/atomic.c`, `backend/drm/properties.c`, `backend/drm/drm.c`, and connector state structs. Confirm whether margin property IDs are already enumerated, whether `DRM_MODE_ATOMIC_ALLOW_MODESET` or other CRTC/plane state is necessary, and whether commits can be triggered with no new framebuffer. The observed EACCES rules out the standalone approach in the current session but does not prove that a compositor-side atomic commit will visibly update margins.
 
 **Next deliverable:** version-matched source patch plus isolated test interface with compositor-owned 5-second rollback; retain the working boot-based implementation as a fallback. Do not install replacement wlroots/labwc binaries on the Pi before validating the build and rollback.
+
+## Source audit checkpoint: wlroots upstream DRM implementation
+
+Inspected actual upstream files at `swaywm/wlroots` `master` (not yet verified to match the Pi's installed binary):
+
+- `backend/drm/properties.c`: `connector_info[]` is a sorted lookup table of known connector properties; it does **not** contain any of the four `* margin` names. Thus simply using an existing wlroots output-setting interface cannot reach these properties.
+- `backend/drm/atomic.c`: `atomic_add(&atom, conn->id, conn->props.crtc_id, ...)` shows the connector-property insertion point. The same request includes CRTC mode/active and plane properties; `DRM_MODE_ATOMIC_ALLOW_MODESET` is set only for a modeset. A patch would need to discover the margin property IDs, include margin values in the connector atomic request, and ensure a suitable commit is actually scheduled.
+- **Version mismatch discovered:** GitHub does not have a `swaywm/wlroots` tag named `0.20.2` (404). The observed `0.20.2` may be the labwc version, a downstream package version, or a different library version. Do not base a binary patch on the upstream `master` files.
+
+Sources:
+- https://github.com/swaywm/wlroots/blob/master/backend/drm/properties.c
+- https://github.com/swaywm/wlroots/blob/master/backend/drm/atomic.c
+
+Before producing a version-specific patch, collect these non-mutating package/source identifiers on the Pi:
+
+```sh
+dpkg-query -W 'labwc' 'libwlroots*' 2>/dev/null
+apt-cache policy labwc
+ldd "$(command -v labwc)" | grep -Ei 'wlroots|libdrm'
+```
+
+This is a **read-only environment identification step**, not an instruction to install or replace desktop components. Next: audit the matching source tree and prototype margin-property atomic commit wiring with an opt-in compositor-owned rollback.

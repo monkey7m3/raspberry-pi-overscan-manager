@@ -1,0 +1,34 @@
+--- a/include/backend/drm/properties.h
++++ b/include/backend/drm/properties.h
+@@ -28,6 +28,12 @@
+ 	uint32_t crtc_id;
+ 	uint32_t colorspace;
+ 	uint32_t hdr_output_metadata;
++
++	// Optional VC4 overscan properties (discovery only; no writes).
++	uint32_t margin_left;
++	uint32_t margin_right;
++	uint32_t margin_top;
++	uint32_t margin_bottom;
+ };
+ 
+ struct wlr_drm_crtc_props {
+--- a/backend/drm/properties.c
++++ b/backend/drm/properties.c
+@@ -27,12 +27,16 @@
+ 	{ "EDID", INDEX(edid) },
+ 	{ "HDR_OUTPUT_METADATA", INDEX(hdr_output_metadata) },
+ 	{ "PATH", INDEX(path) },
++	{ "bottom margin", INDEX(margin_bottom) },
+ 	{ "content type", INDEX(content_type) },
++	{ "left margin", INDEX(margin_left) },
+ 	{ "link-status", INDEX(link_status) },
+ 	{ "max bpc", INDEX(max_bpc) },
+ 	{ "non-desktop", INDEX(non_desktop) },
+ 	{ "panel orientation", INDEX(panel_orientation) },
++	{ "right margin", INDEX(margin_right) },
+ 	{ "subconnector", INDEX(subconnector) },
++	{ "top margin", INDEX(margin_top) },
+ 	{ "vrr_capable", INDEX(vrr_capable) },
+ #undef INDEX
+ };

@@ -21,7 +21,7 @@ EDGES = ("left", "right", "top", "bottom")
 
 def parse_connector(report, name):
     lines = report.splitlines()
-    header = re.compile(r"^\\s*(\\d+)\\s+\\d+\\s+connected\\s+" + re.escape(name) + r"\\s")
+    header = re.compile(r"^\s*(\d+)\s+\d+\s+connected\s+" + re.escape(name) + r"\s")
     start = next((i for i, line in enumerate(lines) if header.search(line)), None)
     if start is None:
         raise RuntimeError("Connected connector not found: " + name)
@@ -29,14 +29,14 @@ def parse_connector(report, name):
     properties = {}
     prop = None
     for line in lines[start + 1:]:
-        if re.match(r"^\\s*\\d+\\s+\\d+\\s+(?:connected|disconnected|unknown)\\s+\\S+", line) or re.match(r"^CRTCs:", line):
+        if re.match(r"^\s*\d+\s+\d+\s+(?:connected|disconnected|unknown)\s+\S+", line) or re.match(r"^CRTCs:", line):
             break
-        match = re.match(r"^\\s*(\\d+)\\s+(left|right|top|bottom) margin:\\s*$", line)
+        match = re.match(r"^\s*(\d+)\s+(left|right|top|bottom) margin:\s*$", line)
         if match:
             prop = (match.group(2), int(match.group(1)))
             continue
         if prop:
-            value = re.match(r"^\\s*value:\\s*(\\d+)\\s*$", line)
+            value = re.match(r"^\s*value:\s*(\d+)\s*$", line)
             if value:
                 properties[prop[0]] = {"id": prop[1], "value": int(value.group(1))}
                 prop = None

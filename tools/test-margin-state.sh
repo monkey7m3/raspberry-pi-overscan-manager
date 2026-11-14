@@ -8,5 +8,9 @@ cc -std=c11 -Wall -Wextra -Werror -pedantic -O2 \
   -I "$root/experiments" "$root/experiments/test-margin-state.c" \
   -o "$tmp/test-margin-state"
 "$tmp/test-margin-state"
-echo "PASS: margin state machine assertions"
+cc -std=c11 -Wall -Wextra -Werror -pedantic -O2 \
+  -I "$root/experiments" "$root/experiments/test-margin-controller.c" \
+  -o "$tmp/test-margin-controller"
+"$tmp/test-margin-controller"
+echo "PASS: margin state machine and controller assertions"
 echo "NOTE: no compositor integration or hardware atomic commit tested"
